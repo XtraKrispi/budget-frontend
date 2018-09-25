@@ -33,18 +33,23 @@ import Dict exposing (Dict)
 ---- MODEL ----
 
 
+type Page
+    = Dashboard
+    | Definitions
+
+
 type Selected
     = Selected
     | NotSelected
 
 
 type alias Model =
-    {}
+    { currentPage : Page }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( {}, Cmd.none )
+    ( { currentPage = Dashboard }, Cmd.none )
 
 
 
@@ -52,12 +57,14 @@ init =
 
 
 type Msg
-    = NoOp
+    = ChangePage Page
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    ( model, Cmd.none )
+    case msg of
+        ChangePage page ->
+            ( { model | currentPage = page }, Cmd.none )
 
 
 
@@ -68,14 +75,22 @@ view : Model -> Html Msg
 view model =
     Element.layout []
         (mainLayout
-            [ el [ paddingEach { top = 20, right = 0, bottom = 0, left = 20 } ] (text "Budget")
+            [ el
+                [ paddingEach
+                    { top = 20
+                    , right = 0
+                    , bottom = 0
+                    , left = 20
+                    }
+                ]
+                (text "Budget")
             , tabs
                 (Dict.fromList
-                    [ ( "Dashboard", NoOp )
-                    , ( "Definitions", NoOp )
+                    [ ( pageTitle Dashboard, ChangePage Dashboard )
+                    , ( pageTitle Definitions, ChangePage Definitions )
                     ]
                 )
-                "Dashboard"
+                model.currentPage
             , mainContent
             ]
         )
@@ -110,24 +125,46 @@ tabStyleSelected =
     ]
 
 
-tab : Selected -> String -> Msg -> Element Msg
-tab s t m =
-    let
-        style =
-            case s of
-                Selected ->
-                    tabStyleSelected
-
-                NotSelected ->
-                    tabStyle
-    in
-        button style
-            { onPress = Just m
-            , label = text t
-            }
+pages : Dict String Page
+pages =
+    Dict.fromList
+        [ ( "Dashboard", Dashboard )
+        , ( "Definitions", Definitions )
+        ]
 
 
-tabs : Dict String Msg -> String -> Element Msg
+pageTitle : Page -> String
+pageTitle page =
+    Dict.toList pages
+        |> List.filter (\( s, p ) -> p == page)
+        |> List.map Tuple.first
+        |> List.head
+        |> Maybe.withDefault ""
+
+
+pageFromTitle : Page -> String -> Page
+pageFromTitle def title =
+    Dict.get title pages
+        |> Maybe.withDefault def
+
+
+tab : Selected -> Page -> Msg -> Element Msg
+tab s page m =
+    case s of
+        Selected ->
+            button tabStyleSelected
+                { onPress = Nothing
+                , label = text (pageTitle page)
+                }
+
+        NotSelected ->
+            button tabStyle
+                { onPress = Just m
+                , label = text (pageTitle page)
+                }
+
+
+tabs : Dict String Msg -> Page -> Element Msg
 tabs ts selected =
     let
         tabs_ =
@@ -136,12 +173,12 @@ tabs ts selected =
                 |> List.map
                     (\( s, m ) ->
                         tab
-                            (if s == selected then
+                            (if s == (pageTitle selected) then
                                 Selected
                              else
                                 NotSelected
                             )
-                            s
+                            (pageFromTitle Dashboard s)
                             m
                     )
     in
